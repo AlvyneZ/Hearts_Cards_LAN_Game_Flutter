@@ -4,6 +4,18 @@ import 'header.dart';
 
 String cardToPlay = '';
 String playerName = 'Name';
+double cardsAspect = 0.65;
+
+double screenWidth(BuildContext context, {double fraction = 1}){
+  return MediaQuery.of(context).size.width * fraction;
+}
+double screenHeight(BuildContext context, {double fraction = 1}){
+  return MediaQuery.of(context).size.height * fraction;
+}
+double screenAspect(BuildContext context){
+  //Ratio of width / height
+  return MediaQuery.of(context).size.aspectRatio;
+}
 
 void main(){
   init();
@@ -23,11 +35,11 @@ class CardsApp extends StatelessWidget {
       initialRoute: '/HeartsInit',
       routes:{
         '/HeartsInit' : (context) =>
-            StreamBuilder(stream: updater.stream, builder: (_, s) => HeartsInit()),
+            StreamBuilder(stream: updater.stream, builder: (context, snapshot) => HeartsInit()),
         '/HeartsLobby' : (context) =>
-            StreamBuilder(stream: updater.stream, builder: (_, s) => HeartsLobby()),
+            StreamBuilder(stream: updater.stream, builder: (context, snapshot) => HeartsLobby()),
         '/HeartsGame' : (context) =>
-            StreamBuilder(stream: updater.stream, builder: (_, s) => Hearts(title: 'Hearts')),
+            StreamBuilder(stream: updater.stream, builder: (context, snapshot) => Hearts(title: 'Hearts')),
         '/HeartsGameOver' : (context) => HeartsResults(),
       },
     );
@@ -49,90 +61,112 @@ class _HeartsInitState extends State<HeartsInit> {
       appBar:  AppBar(
         title: Text('Hearts Initialization'),
       ),
+      backgroundColor: Colors.grey[50],
       body: Container(
-        padding: EdgeInsets.all(30),
         child: Form(
           key: _formKey,
-          child: Column(
-            children: <Widget>[
-              TextFormField(
-                decoration: InputDecoration(
-                  hintText: "Player name",
-                  contentPadding: EdgeInsets.all(15.0),
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-                validator: (String value){
-                  if(value.isEmpty){
-                    return "Enter your player name";
-                  }
-                  return null;
-                },
-                onSaved: (String value){
-                  playerName = value;
-                },
-              ),
-              Text(
-                "Your IP adress is: $myIPString",
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey[700]
-                ),
-              ),
-              TextFormField(
-                decoration: InputDecoration(
-                  hintText: "Server IP address",
-                  contentPadding: EdgeInsets.all(15.0),
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-                keyboardType: TextInputType.number,
-                validator: (String value){
-                  if(value.isEmpty){
-                    return "Enter the server's IP Address in the form d.d.d.d";
-                  }
-                  else{
-                    int numberCount = 0, count = 0;
-                    for (int i = 0; i < value.length; i++) {
-                      if ((numberCount < 3) && (count > 0) && (value[i] == '.')) {
-                        count = 0; numberCount ++;
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(30.0),
+              child: Column(
+                children: <Widget>[
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: "Player Name",
+                      hintText: "Enter the player name you wish to use",
+                      contentPadding: EdgeInsets.all(15.0),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.green[300], width: 1.0),
+                      ),
+                      filled: true,
+                      fillColor: Colors.green[50],
+                    ),
+                    validator: (String value){
+                      if(value.isEmpty){
+                        return "Enter your player name";
                       }
-                      else if ((count < 3) && (value[i]=='0' || value[i]=='1' || value[i]=='2'
-                          || value[i]=='3' ||value[i]=='4' || value[i]=='5'
-                          || value[i]=='6' || value[i]=='7' ||value[i]=='8'
-                          || value[i]=='9')) {
-                        count ++;
+                      for (int i = 0; i < value.length; i ++){
+                        if (value[i] == ';')
+                          return "Sorry: You may not use a semicolon ';' in your name";
                       }
-                      else {
-                        return "Enter the server's IP Address in the form d.d.d.d";
-                      }
-                    }
-                  }
-                  return null;
-                },
-                onSaved: (String value){
-                  server = value;
-                },
-              ),
-              RaisedButton(
-                color: Colors.blueAccent,
-                onPressed: () {
-                  if (_formKey.currentState.validate()) {
-                    _formKey.currentState.save();
-                    start(playerName);
-                    Navigator.pushNamed(context, '/HeartsLobby');
-                  }
-                },
-                child: Text(
-                  'Connect to server',
-                  style: TextStyle(
-                    color: Colors.white,
+                      return null;
+                    },
+                    onSaved: (String value){
+                      playerName = value;
+                    },
                   ),
-                ),
-              )
-            ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 30.0),
+                    child: Text(
+                      "Your IP adress is: $myIPString",
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey[500]
+                      ),
+                    ),
+                  ),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: "Server IP address",
+                      hintText: "Enter the IP Address of the server",
+                      contentPadding: EdgeInsets.all(15.0),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.green[300], width: 1.0),
+                      ),
+                      filled: true,
+                      fillColor: Colors.green[50],
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (String value){
+                      if(value.isEmpty){
+                        return "The server's IP Address cannot be left empty";
+                      }
+                      else{
+                        int numberCount = 0, count = 0;
+                        for (int i = 0; i < value.length; i++) {
+                          if ((numberCount < 3) && (count > 0) && (value[i] == '.')) {
+                            count = 0; numberCount ++;
+                          }
+                          else if ((count < 3) && (value[i]=='0' || value[i]=='1' || value[i]=='2'
+                              || value[i]=='3' ||value[i]=='4' || value[i]=='5'
+                              || value[i]=='6' || value[i]=='7' ||value[i]=='8'
+                              || value[i]=='9')) {
+                            count ++;
+                          }
+                          else {
+                            return "Enter the server's IP Address in the form d.d.d.d";
+                          }
+                        }
+                      }
+                      return null;
+                    },
+                    onSaved: (String value){
+                      server = value;
+                    },
+                  ),
+                  ButtonBar(
+                    children: <Widget>[
+                      RaisedButton(
+                        color: Colors.greenAccent,
+                        onPressed: () {
+                          if (_formKey.currentState.validate()) {
+                            _formKey.currentState.save();
+                            start(playerName);
+                            Navigator.pushNamed(context, '/HeartsLobby');
+                          }
+                        },
+                        child: Text(
+                          'Connect to server',
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -149,88 +183,126 @@ class HeartsLobby extends StatefulWidget {
 class _HeartsLobbyState extends State<HeartsLobby> {
   @override
   Widget build(BuildContext context) {
-    if (isServer) {
+    if (isServer || connected) {
       return Scaffold(
         appBar: AppBar(
           title: Text("Hearts Game Lobby"),
         ),
+        backgroundColor: Colors.grey[300],
         body: Container(
-          padding: EdgeInsets.all(15.0),
-          child: Column(
-            children: <Widget>[
-              Text("You are the server"),
-              Text("Server IP: $server"),
-              Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 30.0,horizontal: 10.0),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
-                children: playersNames.map((pl) {
-                  return Text(pl);
-                }).toList()
+                children: <Widget>[
+                  Text(
+                    (isServer)?"You are the server":
+                    "You are connected to the server on ${playersNames[0]}'s phone",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                      fontSize: 20,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                  Divider(
+                      thickness: 3.0,
+                      color: Colors.green[700]
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text("Server IP: ",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2.0,
+                            fontSize: 15,
+                            color: Colors.green[600],
+                          ),
+                        ),
+                        Text("$server",
+                          style: TextStyle(
+                            letterSpacing: 2.0,
+                            fontSize: 20,
+                            color: Colors.teal[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                      thickness: 2.0,
+                      color: Colors.green[700]
+                  ),
+                  Text("Connected Players: ",
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      fontSize: 18,
+                      color: Colors.green[500],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: playersNames.map((pl) {
+                        return Text(pl,
+                            style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                letterSpacing: 1.0,
+                                fontSize: 15,
+                                color: Colors.green[400],
+                            )
+                        );
+                      }).toList()
+                    ),
+                  ),
+                  (isServer)?
+                  RaisedButton(
+                    color: Colors.greenAccent,
+                    onPressed: ((gameBegan || (connectedPlayers<4))?null:(){
+                      //{DEBUGGING} remove connected players condition if less phones available
+                      if (connectedPlayers == 4){
+                        beginNewGame();
+                        Navigator.pushNamed(context, '/HeartsGame');
+                      }else{return null;}
+                    }),
+                    child: Text('Begin Game'),
+                  )
+                  :
+                  Container(),
+                  RaisedButton(
+                    color: Colors.greenAccent,
+                    onPressed: (gameBegan?(){Navigator.pushNamed(context, '/HeartsGame');}:null),
+                    child: Text('Connect to Game'),
+                  ),
+                ],
               ),
-              RaisedButton(
-                color: Colors.amber[500],
-                onPressed: (gameBegan?null:(){
-                  //{DEBUGGING} remove connected players condition if less phones available
-                  if (connectedPlayers == 4){
-                    beginNewGame();
-                    Navigator.pushNamed(context, '/HeartsGame');
-                  }else{return null;}
-                }),
-                child: Text('Begin Game'),
-              ),
-              RaisedButton(
-                color: Colors.amber[500],
-                onPressed: (gameBegan?(){Navigator.pushNamed(context, '/HeartsGame');}:null),
-                child: Text('Connect to Game'),
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
-    else{
-      if (connected) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Hearts Game Lobby"),
-          ),
-          body: Container(
-            padding: EdgeInsets.all(15.0),
-            child: Column(
-              children: <Widget>[
-                Text("You are connected to the server"),
-                Text("Server IP: $server"),
-                Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: playersNames.map((pl) {
-                      return Text(pl);
-                    }).toList()
-                ),
-                RaisedButton(
-                  color: Colors.amber[500],
-                  onPressed: (gameBegan?(){Navigator.pushNamed(context, '/HeartsGame');}:null),
-                  child: Text('Connect to Game'),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-      else if (connectFail){
+    else if (connectFail){
         return Scaffold(
             appBar: AppBar(
               title: Text("Connection failed"),
             ),
             body: Text("Failed To Connect. Server is full"),
         );
-      }
-      else{
+    }
+    else{
         return Scaffold(
           appBar: AppBar(
             title: Text("Connection in progress"),
           ),
           body: Text("Awaiting connection confirmation from server"),
         );
-      }
     }
   }
 }
@@ -251,7 +323,7 @@ class _HeartsState extends State<Hearts> {
 
   void playButton(){
     if (swapped) {
-      if (((turn == me) || (turn == -1)) && (cardToPlay != ''))
+      if (((turn == me) && (cardToPlay != '')) || ((turn == -1) && (cardToPlay == '2C')))
         return play(cardToPlay, me);
       else
         return null;
@@ -273,6 +345,7 @@ class _HeartsState extends State<Hearts> {
 
   void play (String card, int player){
     setState(() {
+      print("Checking for play validity. Turn: $turn");
       if (playHeartsIsValid(
           heartsIsBroken, table, card, me, players[player].cardsInHand)) {
         sendPlayCard(cardToPlay);
@@ -289,9 +362,13 @@ class _HeartsState extends State<Hearts> {
       Navigator.pushNamed(context, '/HeartsGameOver');
     }
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
+      appBar: PreferredSize(
+          preferredSize: Size.fromHeight(screenHeight(context, fraction: 0.05)),
+          child: AppBar(
+            title: Text(widget.title),
+          ),
       ),
+      //DIMENSION: At this point a total 0.05 of the screen height is used up
       body: Container(
         color: Colors.green[100],
         child: Center(
@@ -300,10 +377,16 @@ class _HeartsState extends State<Hearts> {
             children: <Widget>[
               TableCards(cards: table),
               //To show the table with the cards that have been played
+              //DIMENSION: At this point a total 0.4 of the screen height is used up
               Container(
                 //To show the cards in hand of the player
                 height: 200.0,
-                child: StreamBuilder(stream: updater.stream, builder: (_, s) => PlayerCards(playerCards: players[me].cardsInHand)),
+                child: StreamBuilder(
+                  stream: updater.stream,
+                  builder: (context, snapshot) {
+                    return PlayerCards(playerCards: players[me].cardsInHand);
+                  }
+                ),
               ),
               ButtonBar(
                 children: <Widget>[
@@ -329,15 +412,17 @@ class _HeartsState extends State<Hearts> {
               Container(
                 //To show the cards taken by the player
                 height: 25,
-                child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: players[me].cardsTaken.map((card) {
-                        return Expanded(
-                            flex: 1,
-                            child: Image.asset('assets/red_back.png')
-                        );
-                      }).toList(),
-                    ),
+                child: Center(
+                  child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: players[me].cardsTaken.map((card) {
+                          return Expanded(
+                              flex: 1,
+                              child: Image.asset('assets/red_back.png')
+                          );
+                        }).toList(),
+                      ),
+                ),
               ),
             ],
           ),
@@ -455,26 +540,20 @@ class PlayerCards extends StatefulWidget {
 }
 
 class PlayerCardsState extends State<PlayerCards> {
-  int cardsNo;
   double count = -1;
   DragCard toRet;
 
-  @override
-  void initState(){
-    super.initState();
-    cardsNo = widget.playerCards.length;
-  }
 
   @override
   Widget build(BuildContext context) {
-    cardsNo = players[me].cardsInHand.length;
-    if (cardsNo != 0) {
+    count = -1;
+    if (widget.playerCards.length != 0) {
       return Stack(
         children: <Widget> [
           Stack(
             children: widget.playerCards.map((card) {
               count += 1.0;
-              if (count < (cardsNo / 2)) {
+              if (count < (widget.playerCards.length / 2)) {
                 toRet = DragCard(
                   card: card,
                   initPos: Offset((count * 50.0), 0.0),
@@ -485,7 +564,7 @@ class PlayerCardsState extends State<PlayerCards> {
               else{
                 toRet = DragCard(
                   card: card,
-                  initPos: Offset(((count - (cardsNo/2)) * 50.0), 76.0),
+                  initPos: Offset(((count - (widget.playerCards.length/2)) * 50.0), 76.0),
                   hCard: 76.0,
                   wCard: 50.0,
                 );
@@ -520,7 +599,7 @@ class PlayerCardsState extends State<PlayerCards> {
                       if (cardToPlay != '') {
                         return Container(
                             height: 50.0,
-                            width: (55.0 * (cardsNo / 2)),
+                            width: screenWidth(context), //originally (55.0 * (widget.playerCards.length / 2)),
                             color: Colors.green[300],
                             child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -536,7 +615,7 @@ class PlayerCardsState extends State<PlayerCards> {
                       else {
                         return Container(
                           height: 50.0,
-                          width: (55.0 * (cardsNo / 2)),
+                          width: screenWidth(context),
                           color: Colors.green[300],
                           child: Center(child: Text(
                               'Drag the card you wish to play here')),
@@ -547,7 +626,7 @@ class PlayerCardsState extends State<PlayerCards> {
                       if (myOldSwapCards != []) {
                         return Container(
                             height: 50.0,
-                            width: (55.0 * (cardsNo / 2)),
+                            width: screenWidth(context),
                             color: Colors.green[300],
                             child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -563,7 +642,7 @@ class PlayerCardsState extends State<PlayerCards> {
                       else {
                         return Container(
                           height: 50.0,
-                          width: (55.0 * (cardsNo / 2)),
+                          width: screenWidth(context),
                           color: Colors.green[300],
                           child: Center(child: Text(
                               'Drag the cards you wish to swap here')),
@@ -612,75 +691,85 @@ class TableCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String yourTurn = "Next Player";
+    String yourTurn = "";
     if (turn == me) yourTurn = "Your Turn";
-    if (cards.length == 0) {
-      return Container(
-        height: 120,
-        width: 235,
-        margin: EdgeInsets.all(10.0),
-        padding: EdgeInsets.all(10.0),
-        color:Colors.brown[600],
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              left: 0.0,
-              top: 0.0,
-              child: Container(
-                  height: 100.0,
-                  width: 65.0,
-                  padding: EdgeInsets.symmetric(vertical: 0.0, horizontal: 12.0),
-                  color: Colors.grey[700],
-                  child: Center(
-                      child: Text('First Player')
-                  )
-              )
-            )
-          ]
-        )
-      );
-    }
-    else{
-      int count = -1;
-      return Container(
-        height: 120,
-        width: 235,
-        margin: EdgeInsets.all(10.0),
-        padding: EdgeInsets.all(10.0),
-        color:Colors.brown[600],
-        child: Stack(
-            children:<Widget>[
-              Stack(
-                children: cards.map((card) {
-                  count ++;
-                  return Positioned(
-                    left: (count * 50.0),
+    int count = -1;
+    double tableHeight, tableWidth;
+    return Container(
+      height: ((){
+        if(screenHeight(context, fraction: (0.3333*cardsAspect*2.3846)) >= screenWidth(context, fraction: 0.8333))
+          tableHeight = screenHeight(context, fraction: 0.3333);
+        else
+          tableHeight = screenWidth(context, fraction: (0.8333 * 0.41935/cardsAspect));
+      }()),//initially 120
+      width: tableWidth = tableHeight * 2.3846 * cardsAspect,//initially 235
+      margin: EdgeInsets.symmetric(
+          vertical: tableHeight/12, //initially all 10
+          horizontal: tableWidth/12
+      ),
+      padding: EdgeInsets.symmetric(
+          vertical: tableHeight/12, //initially all 10
+          horizontal: tableWidth/12
+      ),
+      color:Colors.black,
+      child: Stack(
+        children: <Widget>[
+          (cards.length == 0)?
+                Positioned(
+                    left: 0.0,
                     top: 0.0,
-                    child: CardImage(
-                      card: card,
-                      heightImg: 100.0,
-                      widthImg: 65.0,
+                    child: Container(
+                      height: (tableHeight * 5 / 7.8),//initially 100
+                      width: (tableWidth * 5 / 18.6),//initially 65
+                      padding: EdgeInsets.symmetric(vertical: 0.0, horizontal: 5.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        shape: BoxShape.rectangle,
+                        borderRadius: BorderRadius.all(Radius.circular(tableHeight * 0.5 / 7.8)),
+                      ),
+                      child: Center(
+                          child: Text('First Play $yourTurn')
+                      )
                     )
-                  );
-                }).toList()
+                )
+            :
+              Stack(
+                  children: cards.map((card) {
+                    count ++;
+                    return Positioned(
+                        left: (count * (tableHeight * 3.5 / 18.6)),
+                        top: (count * (tableHeight * 0.5 / 7.8)),
+                        child: CardImage(
+                          card: card,
+                          heightImg: (tableHeight * 5 / 7.8),//initially 100
+                          widthImg: (tableHeight * 5 / 18.6),//initially 65
+                        )
+                    );
+                  }).toList()
               ),
-              Positioned(
-                left: (cards.length * 50.0),
-                top: 0.0,
-                child: Container(
-                  height: 100.0,
-                  width: 65.0,
-                  padding: EdgeInsets.symmetric(vertical: 0.0, horizontal: 12.0),
-                  color: Colors.grey[700],
-                  child: Center(
-                    child: Text('$yourTurn')
+            (cards.length < 4)?
+                Positioned(
+                  left: (cards.length * (tableHeight * 3.5 / 18.6)),
+                  top: (cards.length * (tableHeight * 0.5 / 7.8)),
+                  child: Container(
+                      height: (tableHeight * 5 / 7.8),//initially 100
+                      width: (tableWidth * 5 / 18.6),//initially 65
+                      padding: EdgeInsets.symmetric(vertical: 0.0, horizontal: 5.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        shape: BoxShape.rectangle,
+                        borderRadius: BorderRadius.all(Radius.circular(tableHeight * 0.5 / 7.8)),
+                      ),
+                      child: Center(
+                          child: Text('Next Player $yourTurn')
+                      )
                   )
                 )
-              )
-            ]
-        )
-      );
-    }
+            :
+                Container()
+              ]
+      )
+    );
   }
 }
 
@@ -697,7 +786,7 @@ class PlayerScore extends StatelessWidget {
           player.name + ': ',
           style: TextStyle(
             letterSpacing: 2.0,
-            fontSize: 12,
+            fontSize: 10,
             color: Colors.amberAccent,
           ),
         ),
@@ -705,8 +794,16 @@ class PlayerScore extends StatelessWidget {
           '${player.pointsCount}',
           style: TextStyle(
             letterSpacing: 2.0,
-            fontSize: 15,
+            fontSize: 12,
             color: Colors.amber[700],
+          ),
+        ),
+        Text(
+          ' (${player.lapPoints})',
+          style: TextStyle(
+            letterSpacing: 2.0,
+            fontSize: 12,
+            color: Colors.amber[500],
           ),
         ),
       ],

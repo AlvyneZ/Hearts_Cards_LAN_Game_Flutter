@@ -153,6 +153,7 @@ List<String> rearrange(List<String> cards){
     }
   }
   //{DEBUGGING} print("Cards have been rearranged");
+  update;
   return newCards;
 }
 
@@ -168,8 +169,14 @@ bool playHeartsIsValid (bool heartsIsBroken, List<String> table, String playCard
   }
 
   //{DEBUGGING} The @C below may be changed to C for easy debugging
-  if ((turn == -1) && (playCard[1] == '2C')) return true;
-  else if (turn != player) return false;
+  if (turn == -1) {
+    if (playCard == '2C')
+      return true;
+    else
+      return false;
+  }
+  else if (turn != player)
+    return false;
   if (table.length >= players.length){
     return false;
   }
@@ -182,8 +189,13 @@ bool playHeartsIsValid (bool heartsIsBroken, List<String> table, String playCard
       else
         return false;
     }
+    else
+      return true;
   }
   else{
+    if (((playCard == "QS") || (playCard[1] == 'H')) && (players[player].cardsInHand.length == 13)){
+      return false;
+    }
     int playShapeIndex = shapes.indexOf(table[0][1]);
     if (playCard[1] == table[0][1])
       return true;
@@ -192,27 +204,31 @@ bool playHeartsIsValid (bool heartsIsBroken, List<String> table, String playCard
     else
       return false;
   }
-  return null;
 }
 
 
 //code {variables and functions} for communication between phones
 bool isServer = false;
 bool gameBegan = false, swapped = false, gameEnd = false;
+List<bool> oppSwap = [false, false, false, false];
 String server, myIPString = "waiting...";
 bool heartsIsBroken = false;
 bool connected = false, connectFail = false;
 int me;
-int turn;
+int turn = -1;
 int lapCount = 0;
 List<String> myOldSwapCards = [], myNewSwapCards = [];
 List<String> table = [];
 List<String> playersNames = [];
 List<PlayerHearts> players = List(4); //fixed-length
 
+//Stream for allowing updating of the screen at will
+StreamController<int> updater = StreamController<int>.broadcast(); /*Should be type var and .broadcast*/
+get update {
+  return updater.add(0);
+}/*Should be get update => updater.add(0);*/
+
 RawDatagramSocket udp;
-var updater = StreamController<int>.broadcast();
-get update => updater.add(0);
 InternetAddress serverIP, myIP;
 int port = 1999;
 int connectedPlayers;
@@ -234,15 +250,20 @@ onData(_){
     if (dataTx[0] == 0){
       //Connecting device to join game [received by server]
       bool alreadyConnected = false;
+      int playerNo;
       for (int temp = 0; temp < connectedPlayers; temp++) {
         if (players[temp].ipAddress == ipSource) {
           alreadyConnected = true;
+          playerNo = temp;
           break;
         }
       }
       if (alreadyConnected){
         udp.send([3, 0], ipSource, port);
         sendPlayersNames();
+        if (gameBegan){
+          sendSituation(playerNo, ipSource);
+        }
       }
       else if (connectedPlayers < 4){
         dataTx.removeAt(0);
@@ -293,19 +314,23 @@ onData(_){
         udp.send(dataTx, players[recipient].ipAddress, port);
         //{DEBUGGING} print("Swap being sent from server to: ${players[recipient].ipAddress.address}");
       }
-      else{
-        //Swap sent for server phone
-        dataTx.removeAt(0);
-        String card = "", temp = ascii.decode(dataTx);
-        for (int i = 0; i < temp.length; i ++){
-          if (i%2 == 0) card = temp[i];
-          else {
-            card += temp[i];
+      dataTx.removeAt(0);
+      String card = "", temp = ascii.decode(dataTx);
+      for (int i = 0; i < temp.length; i ++){
+        if (i%2 == 0) card = temp[i];
+        else {
+          card += temp[i];
+          players[sender].cardsInHand.remove(card);
+          oppSwap[sender] = true;
+          if (recipient == 0) {
+            //Swap sent for server phone
             if (swapped)
               players[me].cardsInHand.add(card);
             else
               myNewSwapCards.add(card);
           }
+          else
+            players[recipient].cardsInHand.add(card);
         }
       }
     }
@@ -340,29 +365,21 @@ onData(_){
     if (dataTx[0] == 0){
       //Player scores being received [sent from server]
       dataTx.removeAt(0);
-      String temp = ascii.decode(dataTx), tempo;
-      int stInd = 0, playerCnt = 0, tempt = 0;
-      bool lapPts = false, negative = false;
-      for (int i = 0; i < temp.length; i++){
-        if (temp[i] == ";"){
-          tempo = temp.substring(stInd, i);
-          if (tempo[0] == "-"){
-            negative = true;
-            tempo = tempo.substring(1, tempo.length);
-          }
-          for (int j = 0; j < tempo.length; j++){
-            tempt = (tempt * 10) + int.parse(tempo[j]);
-          }
-          if (negative) tempt *= -1;
-          if (!lapPts) players[playerCnt].pointsCount += tempt;
-          else{
-            players[playerCnt].lapPoints += tempt;
-            playerCnt ++;
-          }
-          tempt = 0;
-          negative = false;
-          stInd = i + 1;
-          lapPts = !lapPts;
+      if (dataTx[0] == 0) {
+        dataTx.removeAt(0);
+        for (int i = 0; i < players.length; i++) {
+          players[i].pointsCount = dataTx[2*i];
+          if (dataTx[(2*i)+8] == 1) players[i].pointsCount -=256;
+          players[i].lapPoints = dataTx[(2*i)+1];
+          if (dataTx[(2*i)+9] == 1) players[i].lapPoints -=256;
+        }
+      }
+      else if (dataTx[0] == 1){
+        dataTx.removeAt(0);
+        String temp = ascii.decode(dataTx);
+        players[me].cardsTaken = [];
+        for (int i = 0; (i * 2) < temp.length; i++) {
+          players[me].cardsTaken.add("${temp[2*i]}${temp[(2*i)+1]}");
         }
       }
     }
@@ -402,6 +419,7 @@ onData(_){
             myNewSwapCards.add(card);
         }
       }
+      update;
       //{DEBUGGING} print("Swap cards received");
     }
     else if (dataTx[0] == 3) {
@@ -437,8 +455,16 @@ onData(_){
       gameBegan = true;
       //{DEBUGGING} print("Player Detail received");
     }
+    else if (dataTx[0] == 5){
+      //Game situation [sent from server]
+      swapped = false;
+      if (dataTx[1] == 1) swapped = true;
+      heartsIsBroken = false;
+      if (dataTx[2] == 1) heartsIsBroken = true;
+      lapCount = dataTx[3];
+    }
     else if (dataTx[0] == 6) {
-      //Table data being sent [from server]
+      //Table data being sent [received from server]
       turn = dataTx.removeAt(1);
       dataTx.removeAt(0);
       String temp = ascii.decode(dataTx);
@@ -539,15 +565,22 @@ void sendPlayerDetail(int player, InternetAddress destination){
 
 void initPlayersDetails(List<int> code){
   //Client phone receiving player data from server
+  for (int i = 0; i < players.length; i++){
+      players[i] = PlayerHearts(name:playersNames[i], pointsCount: 0, lapPoints: 0);
+  }
   String letters = ascii.decode(code);
-  PlayerHearts out = PlayerHearts(pointsCount: 0, lapPoints: 0);
+  PlayerHearts out = PlayerHearts(name: '',pointsCount: 0, lapPoints: 0);
   out.cardsInHand = []; out.cardsTaken = [];
   String tempStr = '';
   int section = 0;
+  bool negative = false;
   for (int i = 0; i < letters.length; i ++){
     if ((section < 4) && (letters[i] == ';')) {
+      if ((section==2) && (negative)) out.pointsCount = 0 - out.pointsCount;
+      if ((section==3) && (negative)) out.lapPoints = 0 - out.lapPoints;
       section++;
       tempStr = '';
+      negative = false;
     }
     else if (section == 0){
       tempStr = letters[i] + letters[++i];
@@ -558,21 +591,24 @@ void initPlayersDetails(List<int> code){
       out.cardsTaken.add(tempStr);
     }
     else if (section == 2){
+      if (letters[i] == '-') {
+        negative = true;
+        i++;
+      }
       out.pointsCount = (out.pointsCount * 10) + int.parse(letters[i]);
     }
     else if (section == 3){
-      out.pointsCount = (out.lapPoints * 10) + int.parse(letters[i]);
+      if (letters[i] == '-') {
+        negative = true;
+        i++;
+      }
+      out.lapPoints = (out.lapPoints * 10) + int.parse(letters[i]);
     }
     else if (section == 4){
       out.name = "${out.name}${letters[i]}";
     }
   }
   players[me] = out;
-  for (int i = 0; i < players.length; i++){
-    if (i != me) {
-      players[i] = PlayerHearts(name:playersNames[i]);
-    }
-  }
 }
 
 void sendPlayersNames(){
@@ -588,15 +624,28 @@ void sendPlayersNames(){
 }
 
 void sendPlayersScores(){
-  String text = '';
+  List<int> code = [0, 0];
   for (int i = 0; i < players.length; i++){
-    text = ("$text${players[i].pointsCount};${players[i].lapPoints};");
+    code.add(players[i].pointsCount);
+    code.add(players[i].lapPoints);
   }
-  List<int> code = [0];
-  code.addAll(ascii.encode(text));
+  for (int i = 0; i < players.length; i++){
+    code.add((players[i].pointsCount < 0) ? 1: 0);
+    code.add((players[i].lapPoints < 0) ? 1: 0);
+  }
   for (int i = 0; i < players.length; i++){
     udp.send(code, players[i].ipAddress, port);
   }
+}
+
+void sendCardsTaken(int player){
+  List<int> code = [0, 1];
+  String temp = '';
+  for (int i = 0; i < players[player].cardsTaken.length; i++){
+    temp += players[player].cardsTaken[i];
+  }
+  code.addAll(ascii.encode(temp));
+  udp.send(code, players[player].ipAddress, port);
 }
 
 void fullTable(){
@@ -625,6 +674,8 @@ void fullTable(){
     udp.send([1,0,turn,hIB], players[i].ipAddress, port);
   }
   sendPlayersScores();
+  if (taking != me)
+    sendCardsTaken(taking);
 
   if (players[taking].cardsInHand.length == 0) {
     //If lap has ended ie no one has any more cards
@@ -661,8 +712,10 @@ void fullTable(){
     for (int i = 0; i < players.length; i++){
       if (!gameEnd) {
         lapCount++;
-        if ((lapCount % 4) != 3)
+        if ((lapCount % 4) != 3) {
           swapped = false;
+          oppSwap = [false, false, false, false];
+        }
         udp.send([1, 1], players[i].ipAddress, port);
         sendPlayerDetail(i, players[i].ipAddress);
       }
@@ -703,7 +756,7 @@ void sendPlayCard(String cardToPlay){
     turn = 1;
     String temp = '';
     for (int i = 0; i < table.length; i++) {
-      temp = table[i][0] + table[i][1];
+      temp += table[i][0] + table[i][1];
     }
     //Sending the new table to every player so as to update table
     List<int> tx = [6,turn];
@@ -724,4 +777,30 @@ void sendPlayCard(String cardToPlay){
     udp.send(code, serverIP, port);
     //{DEBUGGING} print ("Play Card sent");
   }
+}
+
+void sendSituation (int player,InternetAddress destination){
+  //Function for sending the started game's situation to a reconnecting player
+  //player name have already been sent during reconnection
+  //Sending the player's details. ie cards & Pts & gameBegan condition
+  sendPlayerDetail(player, destination);
+  //Sending the table and turn to the reconnecting player
+  List<int> tx;
+  String temp = '';
+  for (int i = 0; i < table.length; i++) {
+    temp += table[i][0] + table[i][1];
+  }
+  tx = [6, turn];
+  tx.addAll(ascii.encode(temp));
+  udp.send(tx, destination, port);
+  //{DEBUGGING} print ("Table Data sent to: ${ipSource}");
+  sendPlayersScores();
+  //Sending the player's swapped condition, game's heartsBroken condition, and lapCount
+  tx = [5];
+  if (oppSwap[player]) tx.add(1);
+  else tx.add(0);
+  if (heartsIsBroken) tx.add(1);
+  else tx.add(0);
+  tx.add(lapCount);
+
 }
